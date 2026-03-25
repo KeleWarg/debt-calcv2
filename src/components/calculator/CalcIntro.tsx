@@ -36,7 +36,7 @@ export function CalcIntro({ onStart }: CalcIntroProps) {
         >
           Most people have never calculated it.
           <br />
-          The answer is usually worse than they think.
+          It might be sooner than you expect.
         </p>
 
         {/* Example box */}

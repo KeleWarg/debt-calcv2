@@ -4,7 +4,6 @@ import * as React from 'react'
 import {
   CalcIntro,
   DebtSlider,
-  RateSlider,
   PaymentSlider,
   CalcLoader,
   RevealScreen,
@@ -19,10 +18,11 @@ import {
 import type { DebtFreeResult, ReliefResult } from '@/lib/calculator'
 import type { CalcStep, CalcFunnelData } from '@/types/calculator'
 
+const DEFAULT_APR = 24.37
+
 const STEP_ORDER: CalcStep[] = [
   'intro',
   'debtAmount',
-  'interestRate',
   'monthlyPayment',
   'loader',
   'reveal',
@@ -35,7 +35,7 @@ export default function CalculatorPage() {
   const [step, setStep] = React.useState<CalcStep>('intro')
   const [data, setData] = React.useState<CalcFunnelData>({
     debtAmount: 15000,
-    interestRate: 24.0,
+    interestRate: DEFAULT_APR,
     monthlyPayment: 350,
   })
   const [currentResult, setCurrentResult] = React.useState<DebtFreeResult | null>(null)
@@ -61,12 +61,12 @@ export default function CalculatorPage() {
   }
 
   const handleLoaderComplete = React.useCallback(() => {
-    const current = calculateDebtFreeDate(data.debtAmount, data.interestRate, data.monthlyPayment)
+    const current = calculateDebtFreeDate(data.debtAmount, DEFAULT_APR, data.monthlyPayment)
     const relief = calculateReliefTimeline(data.debtAmount)
     setCurrentResult(current)
     setReliefResult(relief)
     setStep('reveal')
-  }, [data.debtAmount, data.interestRate, data.monthlyPayment])
+  }, [data.debtAmount, data.monthlyPayment])
 
   const isFullScreen = FULL_SCREEN_STEPS.includes(step)
   const showProgress = !isFullScreen
@@ -95,14 +95,7 @@ export default function CalculatorPage() {
         return (
           <DebtSlider
             initialValue={data.debtAmount}
-            onSubmit={(v) => { update({ debtAmount: v }); goTo('interestRate') }}
-          />
-        )
-      case 'interestRate':
-        return (
-          <RateSlider
-            initialValue={data.interestRate}
-            onSubmit={(v) => { update({ interestRate: v }); goTo('monthlyPayment') }}
+            onSubmit={(v) => { update({ debtAmount: v }); goTo('monthlyPayment') }}
           />
         )
       case 'monthlyPayment':
@@ -110,7 +103,7 @@ export default function CalculatorPage() {
           <PaymentSlider
             initialValue={data.monthlyPayment}
             debtAmount={data.debtAmount}
-            interestRate={data.interestRate}
+            interestRate={DEFAULT_APR}
             onSubmit={(v) => { update({ monthlyPayment: v }); goTo('loader') }}
           />
         )
@@ -119,7 +112,7 @@ export default function CalculatorPage() {
         return (
           <RevealScreen
             debtAmount={data.debtAmount}
-            interestRate={data.interestRate}
+            interestRate={DEFAULT_APR}
             monthlyPayment={data.monthlyPayment}
             currentPath={currentResult}
             reliefPath={reliefResult}

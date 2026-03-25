@@ -117,8 +117,9 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
   const monthsSaved = currentPath.reachable
     ? Math.max(0, currentPath.months - reliefPath.months)
     : cappedCurrentMonths - reliefPath.months
+  const yearsSaved = Math.floor(monthsSaved / 12)
   const timeSavedLabel = monthsSaved >= 12
-    ? `${Math.floor(monthsSaved / 12)} yrs`
+    ? `${yearsSaved} ${yearsSaved === 1 ? 'year' : 'yrs'}`
     : `${monthsSaved} mo`
   const totalSavings = currentPath.reachable
     ? currentPath.totalPaid - reliefPath.totalCost

@@ -47,7 +47,7 @@ export function PaymentSlider({
           className="animate-fade-in-up text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3"
           style={{ animationDelay: '400ms' }}
         >
-          Step 3 of 3
+          Step 2 of 2
         </p>
 
         {/* Headline */}

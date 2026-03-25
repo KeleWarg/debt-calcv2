@@ -1,6 +1,5 @@
 export { CalcIntro } from './CalcIntro'
 export { DebtSlider } from './DebtSlider'
-export { RateSlider } from './RateSlider'
 export { PaymentSlider } from './PaymentSlider'
 export { CalcLoader } from './CalcLoader'
 export { RevealScreen } from './RevealScreen'

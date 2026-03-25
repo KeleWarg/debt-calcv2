@@ -6,9 +6,8 @@ import type { CalcStep } from '@/types/calculator'
 
 const STEP_PROGRESS: Partial<Record<CalcStep, number>> = {
   intro: 0,
-  debtAmount: 16,
-  interestRate: 33,
-  monthlyPayment: 50,
+  debtAmount: 20,
+  monthlyPayment: 45,
   loader: 60,
   reveal: 75,
   pii: 95,

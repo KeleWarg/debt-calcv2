@@ -34,7 +34,7 @@ export function DebtSlider({ initialValue = DEFAULT, onSubmit }: DebtSliderProps
           className="animate-fade-in-up text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3"
           style={{ animationDelay: '400ms' }}
         >
-          Step 1 of 3
+          Step 1 of 2
         </p>
 
         {/* Headline */}
