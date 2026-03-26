@@ -288,10 +288,9 @@ export function CalcCombined({
                 <div className="flex items-start gap-3">
                   <Image src="/clock-icon.png" alt="Clock" width={64} height={64} unoptimized className="flex-shrink-0 animate-float" />
                   <p className="text-body-sm text-neutral-800" style={{ lineHeight: '1.6' }}>
-                    The average American with $15,000 in credit card debt could be debt-free by{' '}
-                    <span className="font-bold text-feedback-success">2028</span> with the right
-                    program instead of{' '}
-                    <span className="font-bold text-feedback-error">2049</span> on minimum payments.
+                    Debt relief programs have helped over{' '}
+                    <span className="font-bold">1 million Americans</span> resolve their debt for a fraction of what they owe — often in{' '}
+                    <span className="font-bold text-feedback-success">2–4 years</span> instead of decades.
                   </p>
                 </div>
               </div>
