@@ -7,7 +7,7 @@ import { StickyButtonContainer } from '@/components/ui/StickyButtonContainer'
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter'
 import { LottieIcon } from '@/components/ui/LottieIcon'
 import { Header } from '@/components/layout/Header'
-import { formatCurrency, cn } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import {
   calculateDebtFreeDate,
   calculateReliefTimeline,
@@ -49,7 +49,6 @@ function generateAmortizationCurve(
   principal: number,
   apr: number,
   monthlyPayment: number,
-  actualMonths: number,
   maxMonths: number,
   reachable: boolean
 ): string {
@@ -57,23 +56,24 @@ function generateAmortizationCurve(
   const monthlyRate = apr / 100 / 12
 
   if (!reachable) {
-    const n = 60
-    for (let i = 0; i <= n; i++) {
-      const t = i / n
-      const remaining = Math.max(0.82, 1 - t * 0.18)
-      const x = PAD.left + t * INNER_W
-      const y = PAD.top + (1 - remaining) * INNER_H
-      pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
-    }
+    // Payment doesn't cover interest — balance grows, never reaches zero.
+    // Flat line at starting balance level across the full chart width.
+    pts.push(`M ${PAD.left.toFixed(1)} ${PAD.top.toFixed(1)}`)
+    pts.push(`L ${(PAD.left + INNER_W).toFixed(1)} ${PAD.top.toFixed(1)}`)
     return pts.join(' ')
   }
 
+  // Month-by-month compound interest amortization:
+  //   interest = remaining_balance * (APR / 12)
+  //   principal_paid = monthly_payment - interest
+  //   new_balance = remaining_balance - principal_paid
   const balances: number[] = [principal]
   let b = principal
-  for (let m = 0; m < actualMonths && b > 0; m++) {
+  for (let m = 0; m < maxMonths && b > 0.01; m++) {
     const interest = b * monthlyRate
-    b -= Math.min(monthlyPayment - interest, b)
-    balances.push(Math.max(0, b))
+    const principalPaid = Math.min(monthlyPayment - interest, b)
+    b = Math.max(0, b - principalPaid)
+    balances.push(b)
   }
 
   for (let m = 0; m < balances.length; m++) {
@@ -121,9 +121,17 @@ export function CalcCombined({
   const [debt, setDebt] = React.useState(initialDebt)
   const [payment, setPayment] = React.useState(initialPayment)
   const [mode, setMode] = React.useState<'calculator' | 'results'>('calculator')
-  const [currentResult, setCurrentResult] = React.useState<DebtFreeResult | null>(null)
-  const [reliefResult, setReliefResult] = React.useState<ReliefResult | null>(null)
   const [stage, setStage] = React.useState(0)
+
+  const currentResult = React.useMemo(
+    () => calculateDebtFreeDate(debt, interestRate, payment),
+    [debt, interestRate, payment]
+  )
+  const reliefResult = React.useMemo(
+    () => calculateReliefTimeline(debt),
+    [debt]
+  )
+
   const debtSliderRef = React.useRef<HTMLInputElement>(null)
   const paymentSliderRef = React.useRef<HTMLInputElement>(null)
   const clipId = React.useId()
@@ -151,18 +159,11 @@ export function CalcCombined({
   }, [mode])
 
   const handleCalculate = () => {
-    const current = calculateDebtFreeDate(debt, interestRate, payment)
-    const relief = calculateReliefTimeline(debt)
-    setCurrentResult(current)
-    setReliefResult(relief)
-    onResultsComputed?.(current, relief, debt, payment)
+    onResultsComputed?.(currentResult, reliefResult, debt, payment)
     setMode('results')
   }
 
-  // Chart data (only computed when results exist)
   const chartData = React.useMemo(() => {
-    if (!currentResult || !reliefResult) return null
-
     const cappedCurrentMonths = currentResult.reachable ? currentResult.months : 420
     const longestMonths = Math.max(cappedCurrentMonths, reliefResult.months)
     const nowYear = new Date().getFullYear()
@@ -179,25 +180,24 @@ export function CalcCombined({
       xTicks.push({ year: endYear, x: PAD.left + INNER_W })
     }
 
-    const reliefIsFaster = reliefResult.months < cappedCurrentMonths
-    const monthsSaved = reliefIsFaster ? cappedCurrentMonths - reliefResult.months : 0
-    const yearsSaved = Math.floor(monthsSaved / 12)
-    const timeSavedLabel = monthsSaved >= 12
-      ? `${yearsSaved} ${yearsSaved === 1 ? 'year' : 'yrs'}`
-      : `${monthsSaved} mo`
+    const currentYears = cappedCurrentMonths / 12
+    const reliefYears = reliefResult.months / 12
+    const yearsDiff = Math.max(0, currentYears - reliefYears)
+    const fasterPayoffLabel = yearsDiff >= 1
+      ? `${Math.round(yearsDiff)} ${Math.round(yearsDiff) === 1 ? 'year' : 'yrs'}`
+      : `${Math.round(yearsDiff * 12)} mo`
     const totalSavings = currentResult.reachable
       ? currentResult.totalPaid - reliefResult.totalCost
       : debt - reliefResult.totalCost
 
     return {
-      currentD: generateAmortizationCurve(debt, interestRate, payment, cappedCurrentMonths, longestMonths, currentResult.reachable),
+      currentD: generateAmortizationCurve(debt, interestRate, payment, longestMonths, currentResult.reachable),
       reliefD: generateReliefCurve(debt, reliefResult.months, longestMonths),
       reliefEndX: PAD.left + (reliefResult.months / longestMonths) * INNER_W,
       currentEndX: PAD.left + (cappedCurrentMonths / longestMonths) * INNER_W,
       bottomY: PAD.top + INNER_H,
       xTicks,
-      reliefIsFaster,
-      timeSavedLabel,
+      fasterPayoffLabel,
       totalSavings,
     }
   }, [currentResult, reliefResult, debt, payment, interestRate])
@@ -205,7 +205,6 @@ export function CalcCombined({
   const revealWidth = stage >= 1 ? INNER_W + PAD.right : 0
 
   const renderChart = (idSuffix: string) => {
-    if (!chartData || !currentResult || !reliefResult) return null
     const { currentD, reliefD, reliefEndX, currentEndX, bottomY, xTicks } = chartData
     const cId = `${clipId}-${idSuffix}`
 
@@ -235,11 +234,13 @@ export function CalcCombined({
             <path d={generateAreaPath(reliefD)} fill={`url(#${cId}-blue)`} className="transition-opacity duration-300" style={{ opacity: stage >= 2 ? 1 : 0 }} />
 
             <g clipPath={`url(#${cId})`}>
-              <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" />
+              <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" strokeDasharray={currentResult?.reachable ? undefined : '8 4'} />
               <path d={reliefD} fill="none" stroke={COL_PRIMARY} strokeWidth="3" />
               <circle cx={PAD.left} cy={PAD.top} r="4" fill={COL_NEUTRAL} />
               <circle cx={reliefEndX} cy={bottomY} r="5" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
-              <circle cx={currentEndX} cy={bottomY} r="4" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+              {currentResult.reachable && (
+                <circle cx={currentEndX} cy={bottomY} r="4" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+              )}
             </g>
 
             <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={COL_MUTED}>{formatCurrency(debt)}</text>
@@ -251,14 +252,16 @@ export function CalcCombined({
             ))}
 
             <text x={reliefEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{reliefResult.year}</text>
-            {currentResult.reachable && (
+            {currentResult.reachable ? (
               <text x={currentEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{currentResult.year}</text>
+            ) : (
+              <text x={PAD.left + INNER_W} y={PAD.top + 14} textAnchor="end" fontSize="10" fontWeight="600" fill={COL_MUTED} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>Never pays off →</text>
             )}
 
             <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={COL_PRIMARY} strokeWidth="3" />
             <text x={PAD.left + 22} y={PAD.top - 13} fontSize="9" fill={COL_NEUTRAL} fontWeight="500">With relief program</text>
             <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={COL_SUCCESS} strokeWidth="3" />
-            <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>Minimum payments</text>
+            <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>At your current payment</text>
           </svg>
         </div>
       </div>
@@ -266,7 +269,7 @@ export function CalcCombined({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-white overflow-x-hidden">
       <Header />
 
       <main className="flex-1 flex items-center">
@@ -406,7 +409,7 @@ export function CalcCombined({
                     className="animate-fade-in-up text-body text-neutral-500 mb-6"
                     style={{ animationDelay: '300ms' }}
                   >
-                    Two paths compared — minimum payments vs. a relief program.
+                    Two paths compared — at your current payment vs. a relief program.
                   </p>
 
                   {/* Mobile-only chart */}
@@ -418,29 +421,25 @@ export function CalcCombined({
                   </div>
 
                   {/* Stat cards */}
-                  {chartData && currentResult && reliefResult && (
-                    <div
-                      className="animate-fade-in-up w-full grid grid-cols-3 gap-3 mb-6"
-                      style={{ animationDelay: '700ms' }}
-                    >
-                      <div className="border border-neutral-200 rounded-xl p-4 text-center">
-                        <p className="text-[22px] font-bold text-primary-700">{formatCurrency(Math.max(0, chartData.totalSavings))}</p>
-                        <p className="text-caption text-neutral-500 mt-0.5">Could save</p>
-                      </div>
-                      <div className="border border-neutral-200 rounded-xl p-4 text-center">
-                        <p className="text-[22px] font-bold text-primary-700">
-                          {!currentResult.reachable ? '30+ yrs' : chartData.reliefIsFaster ? chartData.timeSavedLabel : `${reliefResult.months} mo`}
-                        </p>
-                        <p className="text-caption text-neutral-500 mt-0.5">
-                          {chartData.reliefIsFaster || !currentResult.reachable ? 'Faster payoff' : 'Program length'}
-                        </p>
-                      </div>
-                      <div className="border border-neutral-200 rounded-xl p-4 text-center">
-                        <p className="text-[22px] font-bold text-primary-700">{reliefResult.year}</p>
-                        <p className="text-caption text-neutral-500 mt-0.5">Debt-free by</p>
-                      </div>
+                  <div
+                    className="animate-fade-in-up w-full grid grid-cols-3 gap-3 mb-6"
+                    style={{ animationDelay: '700ms' }}
+                  >
+                    <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                      <p className="text-[22px] font-bold text-feedback-success">{formatCurrency(Math.max(0, chartData.totalSavings))}</p>
+                      <p className="text-caption text-neutral-500 mt-0.5">Could save</p>
                     </div>
-                  )}
+                    <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                      <p className="text-[22px] font-bold text-feedback-success">
+                        {!currentResult.reachable ? '30+ yrs' : chartData.fasterPayoffLabel}
+                      </p>
+                      <p className="text-caption text-neutral-500 mt-0.5">Faster payoff</p>
+                    </div>
+                    <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                      <p className="text-[22px] font-bold text-feedback-success">{reliefResult.year}</p>
+                      <p className="text-caption text-neutral-500 mt-0.5">Debt-free by</p>
+                    </div>
+                  </div>
 
                   {/* Desktop-only chart below stats */}
                   <div

@@ -25,7 +25,6 @@ function generateAmortizationCurve(
   principal: number,
   apr: number,
   monthlyPayment: number,
-  actualMonths: number,
   maxMonths: number,
   reachable: boolean
 ): string {
@@ -33,23 +32,24 @@ function generateAmortizationCurve(
   const monthlyRate = apr / 100 / 12
 
   if (!reachable) {
-    const n = 60
-    for (let i = 0; i <= n; i++) {
-      const t = i / n
-      const remaining = Math.max(0.82, 1 - t * 0.18)
-      const x = PAD.left + t * INNER_W
-      const y = PAD.top + (1 - remaining) * INNER_H
-      pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
-    }
+    // Payment doesn't cover interest — balance grows, never reaches zero.
+    // Flat line at starting balance level across the full chart width.
+    pts.push(`M ${PAD.left.toFixed(1)} ${PAD.top.toFixed(1)}`)
+    pts.push(`L ${(PAD.left + INNER_W).toFixed(1)} ${PAD.top.toFixed(1)}`)
     return pts.join(' ')
   }
 
+  // Month-by-month compound interest amortization:
+  //   interest = remaining_balance * (APR / 12)
+  //   principal_paid = monthly_payment - interest
+  //   new_balance = remaining_balance - principal_paid
   const balances: number[] = [principal]
   let b = principal
-  for (let m = 0; m < actualMonths && b > 0; m++) {
+  for (let m = 0; m < maxMonths && b > 0.01; m++) {
     const interest = b * monthlyRate
-    b -= Math.min(monthlyPayment - interest, b)
-    balances.push(Math.max(0, b))
+    const principalPaid = Math.min(monthlyPayment - interest, b)
+    b = Math.max(0, b - principalPaid)
+    balances.push(b)
   }
 
   for (let m = 0; m < balances.length; m++) {
@@ -128,7 +128,7 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
   const currentEndMonth = cappedCurrentMonths
   const reliefEndMonth = reliefPath.months
 
-  const currentD = generateAmortizationCurve(debtAmount, interestRate, monthlyPayment, cappedCurrentMonths, maxMonths, currentPath.reachable)
+  const currentD = generateAmortizationCurve(debtAmount, interestRate, monthlyPayment, maxMonths, currentPath.reachable)
   const reliefD = generateReliefCurve(debtAmount, reliefPath.months, maxMonths)
 
   const reliefEndX = PAD.left + (reliefEndMonth / maxMonths) * INNER_W
@@ -211,7 +211,7 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                     />
 
                     <g clipPath={`url(#${clipId})`}>
-                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" />
+                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" strokeDasharray={currentPath.reachable ? undefined : '8 4'} />
                       <path d={reliefD} fill="none" stroke={COL_PRIMARY} strokeWidth="3" />
                       <circle cx={PAD.left} cy={PAD.top} r="4" fill={COL_NEUTRAL} />
                       <circle
@@ -222,14 +222,16 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                         className="transition-opacity duration-500"
                         style={{ opacity: stage >= 2 ? 1 : 0 }}
                       />
-                      <circle
-                        cx={currentEndX}
-                        cy={bottomY}
-                        r="4"
-                        fill={COL_SUCCESS}
-                        className="transition-opacity duration-500"
-                        style={{ opacity: stage >= 2 ? 1 : 0 }}
-                      />
+                      {currentPath.reachable && (
+                        <circle
+                          cx={currentEndX}
+                          cy={bottomY}
+                          r="4"
+                          fill={COL_SUCCESS}
+                          className="transition-opacity duration-500"
+                          style={{ opacity: stage >= 2 ? 1 : 0 }}
+                        />
+                      )}
                     </g>
 
                     <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={COL_MUTED}>
@@ -274,7 +276,7 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                       {reliefPath.year}
                     </text>
 
-                    {currentPath.reachable && (
+                    {currentPath.reachable ? (
                       <text
                         x={currentEndX}
                         y={bottomY + 32}
@@ -287,6 +289,8 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                       >
                         {currentPath.year}
                       </text>
+                    ) : (
+                      <text x={PAD.left + INNER_W} y={PAD.top + 14} textAnchor="end" fontSize="10" fontWeight="600" fill={COL_MUTED} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>Never pays off →</text>
                     )}
 
                     <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={COL_PRIMARY} strokeWidth="3" />
@@ -295,7 +299,7 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                     </text>
                     <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={COL_SUCCESS} strokeWidth="3" />
                     <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>
-                      Minimum payments
+                      At your current payment
                     </text>
                   </svg>
                 </div>
@@ -362,11 +366,13 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                     <path d={generateAreaPath(reliefD)} fill={`url(#${clipId}-mobile-blue)`} className="transition-opacity duration-300" style={{ opacity: stage >= 2 ? 1 : 0 }} />
 
                     <g clipPath={`url(#${clipId}-mobile)`}>
-                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" />
+                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" strokeDasharray={currentPath.reachable ? undefined : '8 4'} />
                       <path d={reliefD} fill="none" stroke={COL_PRIMARY} strokeWidth="3" />
                       <circle cx={PAD.left} cy={PAD.top} r="4" fill={COL_NEUTRAL} />
                       <circle cx={reliefEndX} cy={bottomY} r="5" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
-                      <circle cx={currentEndX} cy={bottomY} r="4" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+                      {currentPath.reachable && (
+                        <circle cx={currentEndX} cy={bottomY} r="4" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+                      )}
                     </g>
 
                     <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={COL_MUTED}>{formatCurrency(debtAmount)}</text>
@@ -378,14 +384,16 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
                     ))}
 
                     <text x={reliefEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{reliefPath.year}</text>
-                    {currentPath.reachable && (
+                    {currentPath.reachable ? (
                       <text x={currentEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{currentPath.year}</text>
+                    ) : (
+                      <text x={PAD.left + INNER_W} y={PAD.top + 14} textAnchor="end" fontSize="10" fontWeight="600" fill={COL_MUTED} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>Never pays off →</text>
                     )}
 
                     <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={COL_PRIMARY} strokeWidth="3" />
                     <text x={PAD.left + 22} y={PAD.top - 13} fontSize="9" fill={COL_NEUTRAL} fontWeight="500">With relief program</text>
                     <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={COL_SUCCESS} strokeWidth="3" />
-                    <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>Minimum payments</text>
+                    <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>At your current payment</text>
                   </svg>
                 </div>
               </div>

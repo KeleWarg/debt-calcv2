@@ -3,9 +3,9 @@
  *
  * Standard amortization to calculate payoff timeline.
  * Relief estimate uses industry-average assumptions:
- *   - 50% balance reduction through settlement
- *   - 22% fee on settled amount
- *   - 24-36 month program duration (scales with debt)
+ *   - 40% debt reduction through settlement
+ *   - 20% fee on settled amount
+ *   - 24-48 month program duration (debt / 500, clamped)
  */
 
 export interface DebtFreeResult {
@@ -73,10 +73,10 @@ export function calculateDebtFreeDate(
 }
 
 export function calculateReliefTimeline(principal: number): ReliefResult {
-  const settledAmount = Math.round(principal * 0.50)
-  const fee = Math.round(settledAmount * 0.22)
+  const settledAmount = Math.round(principal * 0.60)
+  const fee = Math.round(settledAmount * 0.20)
   const totalCost = settledAmount + fee
-  const months = Math.min(Math.round(24 + (principal / 10000) * 8), 48)
+  const months = Math.min(Math.max(Math.round(principal / 500), 24), 48)
 
   const now = new Date()
   const freeDate = new Date(now.getFullYear(), now.getMonth() + months)
