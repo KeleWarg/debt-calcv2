@@ -6,6 +6,7 @@
 
 export type CalcStep =
   | 'intro'
+  | 'combined'
   | 'debtAmount'
   | 'interestRate'
   | 'monthlyPayment'

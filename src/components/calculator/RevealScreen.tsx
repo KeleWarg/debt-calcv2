@@ -4,14 +4,16 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui'
 import { StickyButtonContainer } from '@/components/ui/StickyButtonContainer'
+import { Header } from '@/components/layout/Header'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { DebtFreeResult, ReliefResult } from '@/lib/calculator'
 
-const BLUE = '#0066CC'
-const NAVY = '#1B2A4A'
-const GREEN = '#0C7663'
-const GREY = '#B0B0B0'
+const COL_PRIMARY = 'var(--color-primary-700)'
+const COL_NEUTRAL = 'var(--color-charcoal)'
+const COL_SUCCESS = 'var(--color-success)'
+const COL_MUTED = 'var(--color-medium-grey)'
+const COL_DIVIDER = 'var(--color-divider)'
 
 const VB_W = 480
 const VB_H = 240
@@ -147,233 +149,302 @@ export function RevealScreen({ debtAmount, interestRate, monthlyPayment, current
   const revealWidth = stage >= 1 ? INNER_W + PAD.right : 0
 
   return (
-    <div className="w-full max-w-[555px] mx-auto px-4 sm:px-6 pt-2 sm:pt-4 pb-4 sm:pb-8">
-      <div className="flex flex-col items-start w-full has-sticky-button">
-        <h1
-          className="animate-fade-in-up font-display text-headline-lg sm:text-display lg:text-display-md mb-2"
-          style={{ color: NAVY }}
-        >
-          Here&apos;s your <span style={{ color: BLUE }}>debt-free timeline.</span>
-        </h1>
-        <p
-          className="animate-fade-in-up leading-relaxed mb-6"
-          style={{ animationDelay: '100ms', fontSize: '15px', color: '#666666' }}
-        >
-          Two paths compared — minimum payments vs. a relief program.
-        </p>
+    <div className="min-h-screen flex flex-col bg-white">
+      <Header />
 
-        {/* Chart */}
-        <div className="w-full bg-white border border-neutral-200 rounded-xl overflow-hidden mb-5">
-          <div className="px-4 pt-4 pb-1">
-            <svg
-              viewBox={`0 0 ${VB_W} ${VB_H}`}
-              className="w-full"
-              role="img"
-              aria-label="Debt payoff comparison chart"
-            >
-              <defs>
-                <clipPath id={clipId}>
-                  <rect
-                    x={PAD.left}
-                    y={0}
-                    height={VB_H}
-                    width={revealWidth}
-                    style={{ transition: 'width 900ms ease-out' }}
-                  />
-                </clipPath>
-                <linearGradient id={`${clipId}-blue`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={BLUE} stopOpacity="0.15" />
-                  <stop offset="100%" stopColor={BLUE} stopOpacity="0.02" />
-                </linearGradient>
-                <linearGradient id={`${clipId}-green`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={GREEN} stopOpacity="0.10" />
-                  <stop offset="100%" stopColor={GREEN} stopOpacity="0.02" />
-                </linearGradient>
-              </defs>
+      <main className="flex-1 flex items-center">
+        <div className="w-full px-4 sm:pl-[80px] sm:pr-[80px] pt-6 sm:pt-10 pb-4 sm:pb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:gap-12 has-sticky-button">
+            {/* Left: Chart */}
+            <div className="hidden lg:flex lg:flex-col lg:items-start lg:justify-center lg:w-[480px] lg:flex-shrink-0 lg:self-center">
+              <div className="w-full bg-white border border-neutral-200 rounded-xl overflow-hidden">
+                <div className="px-4 pt-4 pb-1">
+                  <svg
+                    viewBox={`0 0 ${VB_W} ${VB_H}`}
+                    className="w-full"
+                    role="img"
+                    aria-label="Debt payoff comparison chart"
+                  >
+                    <defs>
+                      <clipPath id={clipId}>
+                        <rect
+                          x={PAD.left}
+                          y={0}
+                          height={VB_H}
+                          width={revealWidth}
+                          style={{ transition: 'width 900ms ease-out' }}
+                        />
+                      </clipPath>
+                      <linearGradient id={`${clipId}-blue`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COL_PRIMARY} stopOpacity="0.15" />
+                        <stop offset="100%" stopColor={COL_PRIMARY} stopOpacity="0.02" />
+                      </linearGradient>
+                      <linearGradient id={`${clipId}-green`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COL_SUCCESS} stopOpacity="0.10" />
+                        <stop offset="100%" stopColor={COL_SUCCESS} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
 
-              {/* Grid lines */}
-              {[0.25, 0.5, 0.75, 1].map((frac) => (
-                <line
-                  key={frac}
-                  x1={PAD.left}
-                  y1={PAD.top + frac * INNER_H}
-                  x2={PAD.left + INNER_W}
-                  y2={PAD.top + frac * INNER_H}
-                  stroke="#F0F0F0"
-                  strokeWidth="1"
-                />
-              ))}
+                    {[0.25, 0.5, 0.75, 1].map((frac) => (
+                      <line
+                        key={frac}
+                        x1={PAD.left}
+                        y1={PAD.top + frac * INNER_H}
+                        x2={PAD.left + INNER_W}
+                        y2={PAD.top + frac * INNER_H}
+                        stroke={COL_DIVIDER}
+                        strokeWidth="1"
+                      />
+                    ))}
 
-              {/* Area fills */}
-              <path
-                d={generateAreaPath(currentD)}
-                fill={`url(#${clipId}-green)`}
-                className="transition-opacity duration-300"
-                style={{ opacity: stage >= 2 ? 1 : 0 }}
-              />
-              <path
-                d={generateAreaPath(reliefD)}
-                fill={`url(#${clipId}-blue)`}
-                className="transition-opacity duration-300"
-                style={{ opacity: stage >= 2 ? 1 : 0 }}
-              />
+                    <path
+                      d={generateAreaPath(currentD)}
+                      fill={`url(#${clipId}-green)`}
+                      className="transition-opacity duration-300"
+                      style={{ opacity: stage >= 2 ? 1 : 0 }}
+                    />
+                    <path
+                      d={generateAreaPath(reliefD)}
+                      fill={`url(#${clipId}-blue)`}
+                      className="transition-opacity duration-300"
+                      style={{ opacity: stage >= 2 ? 1 : 0 }}
+                    />
 
-              {/* Lines revealed left-to-right */}
-              <g clipPath={`url(#${clipId})`}>
-                <path d={currentD} fill="none" stroke={GREEN} strokeWidth="3" />
-                <path d={reliefD} fill="none" stroke={BLUE} strokeWidth="3" />
+                    <g clipPath={`url(#${clipId})`}>
+                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" />
+                      <path d={reliefD} fill="none" stroke={COL_PRIMARY} strokeWidth="3" />
+                      <circle cx={PAD.left} cy={PAD.top} r="4" fill={COL_NEUTRAL} />
+                      <circle
+                        cx={reliefEndX}
+                        cy={bottomY}
+                        r="5"
+                        fill={COL_PRIMARY}
+                        className="transition-opacity duration-500"
+                        style={{ opacity: stage >= 2 ? 1 : 0 }}
+                      />
+                      <circle
+                        cx={currentEndX}
+                        cy={bottomY}
+                        r="4"
+                        fill={COL_SUCCESS}
+                        className="transition-opacity duration-500"
+                        style={{ opacity: stage >= 2 ? 1 : 0 }}
+                      />
+                    </g>
 
-                {/* Start dot */}
-                <circle cx={PAD.left} cy={PAD.top} r="4" fill={NAVY} />
+                    <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={COL_MUTED}>
+                      {formatCurrency(debtAmount)}
+                    </text>
+                    <text x={PAD.left - 6} y={bottomY + 3} textAnchor="end" fontSize="9" fill={COL_MUTED}>
+                      $0
+                    </text>
 
-                {/* Relief endpoint marker */}
-                <circle
-                  cx={reliefEndX}
-                  cy={bottomY}
-                  r="5"
-                  fill={BLUE}
-                  className="transition-opacity duration-500"
-                  style={{ opacity: stage >= 2 ? 1 : 0 }}
-                />
+                    <line
+                      x1={PAD.left}
+                      y1={bottomY}
+                      x2={PAD.left + INNER_W}
+                      y2={bottomY}
+                      stroke={COL_DIVIDER}
+                      strokeWidth="1"
+                    />
 
-                {/* Current endpoint marker */}
-                <circle
-                  cx={currentEndX}
-                  cy={bottomY}
-                  r="4"
-                  fill={GREEN}
-                  className="transition-opacity duration-500"
-                  style={{ opacity: stage >= 2 ? 1 : 0 }}
-                />
-              </g>
+                    {xTicks.map((tick) => (
+                      <text
+                        key={tick.year}
+                        x={tick.x}
+                        y={bottomY + 16}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fill={COL_MUTED}
+                      >
+                        {tick.year}
+                      </text>
+                    ))}
 
-              {/* Y-axis labels */}
-              <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={GREY}>
-                {formatCurrency(debtAmount)}
-              </text>
-              <text x={PAD.left - 6} y={bottomY + 3} textAnchor="end" fontSize="9" fill={GREY}>
-                $0
-              </text>
+                    <text
+                      x={reliefEndX}
+                      y={bottomY + 32}
+                      textAnchor="middle"
+                      fontSize="11"
+                      fontWeight="700"
+                      fill={COL_PRIMARY}
+                      className="transition-opacity duration-500"
+                      style={{ opacity: stage >= 2 ? 1 : 0 }}
+                    >
+                      {reliefPath.year}
+                    </text>
 
-              {/* X-axis baseline */}
-              <line
-                x1={PAD.left}
-                y1={bottomY}
-                x2={PAD.left + INNER_W}
-                y2={bottomY}
-                stroke="#EDEDED"
-                strokeWidth="1"
-              />
+                    {currentPath.reachable && (
+                      <text
+                        x={currentEndX}
+                        y={bottomY + 32}
+                        textAnchor="middle"
+                        fontSize="11"
+                        fontWeight="700"
+                        fill={COL_SUCCESS}
+                        className="transition-opacity duration-500"
+                        style={{ opacity: stage >= 2 ? 1 : 0 }}
+                      >
+                        {currentPath.year}
+                      </text>
+                    )}
 
-              {/* X-axis tick labels */}
-              {xTicks.map((tick) => (
-                <text
-                  key={tick.year}
-                  x={tick.x}
-                  y={bottomY + 16}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#6A6A6A"
-                >
-                  {tick.year}
-                </text>
-              ))}
+                    <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={COL_PRIMARY} strokeWidth="3" />
+                    <text x={PAD.left + 22} y={PAD.top - 13} fontSize="9" fill={COL_NEUTRAL} fontWeight="500">
+                      With relief program
+                    </text>
+                    <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={COL_SUCCESS} strokeWidth="3" />
+                    <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>
+                      Minimum payments
+                    </text>
+                  </svg>
+                </div>
+              </div>
+            </div>
 
-              {/* Endpoint year annotations */}
-              <text
-                x={reliefEndX}
-                y={bottomY + 32}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill={BLUE}
-                className="transition-opacity duration-500"
-                style={{ opacity: stage >= 2 ? 1 : 0 }}
+            {/* Right: Content */}
+            <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left lg:ml-auto lg:max-w-[480px]">
+              <h1
+                className="animate-fade-in-up font-display text-display sm:text-display-md lg:text-display-lg mb-2 text-neutral-800"
+                style={{ animationDelay: '100ms' }}
               >
-                {reliefPath.year}
-              </text>
+                Here&apos;s your <span className="text-primary-700">debt-free timeline.</span>
+              </h1>
+              <p
+                className="animate-fade-in-up text-body text-neutral-500 mb-6"
+                style={{ animationDelay: '200ms' }}
+              >
+                Two paths compared — minimum payments vs. a relief program.
+              </p>
 
-              {/* Endpoint year annotations — current path */}
-              {currentPath.reachable && (
-                <text
-                  x={currentEndX}
-                  y={bottomY + 32}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fontWeight="700"
-                  fill={GREEN}
-                  className="transition-opacity duration-500"
-                  style={{ opacity: stage >= 2 ? 1 : 0 }}
-                >
-                  {currentPath.year}
-                </text>
-              )}
+              {/* Mobile-only chart */}
+              <div className="w-full lg:hidden bg-white border border-neutral-200 rounded-xl overflow-hidden mb-5">
+                <div className="px-4 pt-4 pb-1">
+                  <svg
+                    viewBox={`0 0 ${VB_W} ${VB_H}`}
+                    className="w-full"
+                    role="img"
+                    aria-label="Debt payoff comparison chart"
+                  >
+                    <defs>
+                      <clipPath id={`${clipId}-mobile`}>
+                        <rect
+                          x={PAD.left}
+                          y={0}
+                          height={VB_H}
+                          width={revealWidth}
+                          style={{ transition: 'width 900ms ease-out' }}
+                        />
+                      </clipPath>
+                      <linearGradient id={`${clipId}-mobile-blue`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COL_PRIMARY} stopOpacity="0.15" />
+                        <stop offset="100%" stopColor={COL_PRIMARY} stopOpacity="0.02" />
+                      </linearGradient>
+                      <linearGradient id={`${clipId}-mobile-green`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COL_SUCCESS} stopOpacity="0.10" />
+                        <stop offset="100%" stopColor={COL_SUCCESS} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
 
-              {/* Legend */}
-              <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={BLUE} strokeWidth="3" />
-              <text x={PAD.left + 22} y={PAD.top - 13} fontSize="9" fill={NAVY} fontWeight="500">
-                With relief program
-              </text>
-              <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={GREEN} strokeWidth="3" />
-              <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={GREY}>
-                Minimum payments
-              </text>
-            </svg>
+                    {[0.25, 0.5, 0.75, 1].map((frac) => (
+                      <line
+                        key={frac}
+                        x1={PAD.left}
+                        y1={PAD.top + frac * INNER_H}
+                        x2={PAD.left + INNER_W}
+                        y2={PAD.top + frac * INNER_H}
+                        stroke={COL_DIVIDER}
+                        strokeWidth="1"
+                      />
+                    ))}
+
+                    <path d={generateAreaPath(currentD)} fill={`url(#${clipId}-mobile-green)`} className="transition-opacity duration-300" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+                    <path d={generateAreaPath(reliefD)} fill={`url(#${clipId}-mobile-blue)`} className="transition-opacity duration-300" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+
+                    <g clipPath={`url(#${clipId}-mobile)`}>
+                      <path d={currentD} fill="none" stroke={COL_SUCCESS} strokeWidth="3" />
+                      <path d={reliefD} fill="none" stroke={COL_PRIMARY} strokeWidth="3" />
+                      <circle cx={PAD.left} cy={PAD.top} r="4" fill={COL_NEUTRAL} />
+                      <circle cx={reliefEndX} cy={bottomY} r="5" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+                      <circle cx={currentEndX} cy={bottomY} r="4" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }} />
+                    </g>
+
+                    <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" fontSize="9" fill={COL_MUTED}>{formatCurrency(debtAmount)}</text>
+                    <text x={PAD.left - 6} y={bottomY + 3} textAnchor="end" fontSize="9" fill={COL_MUTED}>$0</text>
+                    <line x1={PAD.left} y1={bottomY} x2={PAD.left + INNER_W} y2={bottomY} stroke={COL_DIVIDER} strokeWidth="1" />
+
+                    {xTicks.map((tick) => (
+                      <text key={tick.year} x={tick.x} y={bottomY + 16} textAnchor="middle" fontSize="10" fill={COL_MUTED}>{tick.year}</text>
+                    ))}
+
+                    <text x={reliefEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_PRIMARY} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{reliefPath.year}</text>
+                    {currentPath.reachable && (
+                      <text x={currentEndX} y={bottomY + 32} textAnchor="middle" fontSize="11" fontWeight="700" fill={COL_SUCCESS} className="transition-opacity duration-500" style={{ opacity: stage >= 2 ? 1 : 0 }}>{currentPath.year}</text>
+                    )}
+
+                    <line x1={PAD.left} y1={PAD.top - 16} x2={PAD.left + 18} y2={PAD.top - 16} stroke={COL_PRIMARY} strokeWidth="3" />
+                    <text x={PAD.left + 22} y={PAD.top - 13} fontSize="9" fill={COL_NEUTRAL} fontWeight="500">With relief program</text>
+                    <line x1={PAD.left + 150} y1={PAD.top - 16} x2={PAD.left + 168} y2={PAD.top - 16} stroke={COL_SUCCESS} strokeWidth="3" />
+                    <text x={PAD.left + 172} y={PAD.top - 13} fontSize="9" fill={COL_MUTED}>Minimum payments</text>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Stat cards */}
+              <div
+                className={cn(
+                  'w-full grid grid-cols-3 gap-3 mb-6 transition-all duration-700',
+                  stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+                )}
+              >
+                <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                  <p className="text-[22px] font-bold text-primary-700">{formatCurrency(Math.max(0, totalSavings))}</p>
+                  <p className="text-caption text-neutral-500 mt-0.5">Could save</p>
+                </div>
+                <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                  <p className="text-[22px] font-bold text-primary-700">
+                    {!currentPath.reachable ? '30+ yrs' : reliefIsFaster ? timeSavedLabel : `${reliefPath.months} mo`}
+                  </p>
+                  <p className="text-caption text-neutral-500 mt-0.5">
+                    {reliefIsFaster || !currentPath.reachable ? 'Faster payoff' : 'Program length'}
+                  </p>
+                </div>
+                <div className="border border-neutral-200 rounded-xl p-4 text-center">
+                  <p className="text-[22px] font-bold text-primary-700">{reliefPath.year}</p>
+                  <p className="text-caption text-neutral-500 mt-0.5">Debt-free by</p>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div
+                className={cn(
+                  'w-full transition-all duration-700',
+                  stage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+                )}
+              >
+                <StickyButtonContainer>
+                  <Button fullWidth showTrailingIcon onClick={onContinue}>
+                    See If You Qualify
+                  </Button>
+                </StickyButtonContainer>
+              </div>
+
+              {/* Trust line */}
+              <div
+                className={cn(
+                  'w-full flex items-center gap-2 mt-3 transition-opacity duration-500',
+                  stage >= 4 ? 'opacity-100' : 'opacity-0'
+                )}
+              >
+                <Image src="/icon-shield.png" alt="Shield" width={20} height={20} unoptimized />
+                <span className="text-caption text-neutral-500">
+                  Your information is secure and never shared
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Stat cards row */}
-        <div
-          className={cn(
-            'w-full grid grid-cols-3 gap-3 mb-6 transition-all duration-700',
-            stage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
-          )}
-        >
-          <div className="border border-neutral-200 rounded-xl p-4 text-center">
-            <p style={{ fontSize: '22px', fontWeight: 700, color: BLUE }}>{formatCurrency(Math.max(0, totalSavings))}</p>
-            <p style={{ fontSize: '11px', color: '#999999', marginTop: '2px' }}>Could save</p>
-          </div>
-          <div className="border border-neutral-200 rounded-xl p-4 text-center">
-            <p style={{ fontSize: '22px', fontWeight: 700, color: BLUE }}>
-              {!currentPath.reachable ? '30+ yrs' : reliefIsFaster ? timeSavedLabel : `${reliefPath.months} mo`}
-            </p>
-            <p style={{ fontSize: '11px', color: '#999999', marginTop: '2px' }}>
-              {reliefIsFaster || !currentPath.reachable ? 'Faster payoff' : 'Program length'}
-            </p>
-          </div>
-          <div className="border border-neutral-200 rounded-xl p-4 text-center">
-            <p style={{ fontSize: '22px', fontWeight: 700, color: BLUE }}>{reliefPath.year}</p>
-            <p style={{ fontSize: '11px', color: '#999999', marginTop: '2px' }}>Debt-free by</p>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div
-          className={cn(
-            'w-full transition-all duration-700',
-            stage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
-          )}
-        >
-          <StickyButtonContainer>
-            <Button fullWidth showTrailingIcon onClick={onContinue}>
-              See If You Qualify
-            </Button>
-          </StickyButtonContainer>
-        </div>
-
-        {/* Trust line */}
-        <div
-          className={cn(
-            'w-full flex items-center justify-center gap-2 mt-4 transition-opacity duration-500',
-            stage >= 4 ? 'opacity-100' : 'opacity-0'
-          )}
-        >
-          <Image src="/icon-shield.png" alt="Shield" width={20} height={20} unoptimized />
-          <span style={{ fontSize: '12px', color: '#999999' }}>
-            Your information is secure and never shared
-          </span>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

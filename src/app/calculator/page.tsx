@@ -2,37 +2,25 @@
 
 import * as React from 'react'
 import {
-  CalcIntro,
-  DebtSlider,
-  PaymentSlider,
-  CalcLoader,
-  RevealScreen,
+  CalcCombined,
   CalcPII,
 } from '@/components/calculator'
 import { CalcProgressBar } from '@/components/calculator/CalcProgressBar'
 import { Header } from '@/components/layout/Header'
-import {
-  calculateDebtFreeDate,
-  calculateReliefTimeline,
-} from '@/lib/calculator'
 import type { DebtFreeResult, ReliefResult } from '@/lib/calculator'
 import type { CalcStep, CalcFunnelData } from '@/types/calculator'
 
 const DEFAULT_APR = 24.37
 
 const STEP_ORDER: CalcStep[] = [
-  'intro',
-  'debtAmount',
-  'monthlyPayment',
-  'loader',
-  'reveal',
+  'combined',
   'pii',
 ]
 
-const FULL_SCREEN_STEPS: CalcStep[] = ['intro', 'loader']
+const FULL_SCREEN_STEPS: CalcStep[] = ['combined']
 
 export default function CalculatorPage() {
-  const [step, setStep] = React.useState<CalcStep>('intro')
+  const [step, setStep] = React.useState<CalcStep>('combined')
   const [data, setData] = React.useState<CalcFunnelData>({
     debtAmount: 15000,
     interestRate: DEFAULT_APR,
@@ -50,9 +38,7 @@ export default function CalculatorPage() {
   const goBack = React.useCallback(() => {
     const idx = STEP_ORDER.indexOf(step)
     if (idx > 0) {
-      let prev = idx - 1
-      if (STEP_ORDER[prev] === 'loader') prev--
-      setStep(STEP_ORDER[prev])
+      setStep(STEP_ORDER[idx - 1])
     }
   }, [step])
 
@@ -60,65 +46,35 @@ export default function CalculatorPage() {
     setData((prev) => ({ ...prev, ...partial }))
   }
 
-  const handleLoaderComplete = React.useCallback(() => {
-    const current = calculateDebtFreeDate(data.debtAmount, DEFAULT_APR, data.monthlyPayment)
-    const relief = calculateReliefTimeline(data.debtAmount)
+  const handleResultsComputed = React.useCallback((
+    current: DebtFreeResult,
+    relief: ReliefResult,
+    debt: number,
+    payment: number,
+  ) => {
+    update({ debtAmount: debt, monthlyPayment: payment })
     setCurrentResult(current)
     setReliefResult(relief)
-    setStep('reveal')
-  }, [data.debtAmount, data.monthlyPayment])
+  }, [])
 
   const isFullScreen = FULL_SCREEN_STEPS.includes(step)
   const showProgress = !isFullScreen
-  const showBack = step !== 'intro' && step !== 'loader'
+  const showBack = step !== 'combined'
 
-  // Full-screen steps (intro hero, loader)
-  if (step === 'intro') {
+  if (step === 'combined') {
     return (
-      <div className="min-h-screen flex flex-col bg-white">
-        <Header />
-        <div className="flex-1">
-          <CalcIntro onStart={() => goTo('debtAmount')} />
-        </div>
-      </div>
+      <CalcCombined
+        initialDebt={data.debtAmount}
+        initialPayment={data.monthlyPayment}
+        interestRate={DEFAULT_APR}
+        onContinue={() => goTo('pii')}
+        onResultsComputed={handleResultsComputed}
+      />
     )
   }
 
-  if (step === 'loader') {
-    return <CalcLoader onComplete={handleLoaderComplete} />
-  }
-
-  // Standard layout for all other steps
   const renderStep = () => {
     switch (step) {
-      case 'debtAmount':
-        return (
-          <DebtSlider
-            initialValue={data.debtAmount}
-            onSubmit={(v) => { update({ debtAmount: v }); goTo('monthlyPayment') }}
-          />
-        )
-      case 'monthlyPayment':
-        return (
-          <PaymentSlider
-            initialValue={data.monthlyPayment}
-            debtAmount={data.debtAmount}
-            interestRate={DEFAULT_APR}
-            onSubmit={(v) => { update({ monthlyPayment: v }); goTo('loader') }}
-          />
-        )
-      case 'reveal':
-        if (!currentResult || !reliefResult) return null
-        return (
-          <RevealScreen
-            debtAmount={data.debtAmount}
-            interestRate={DEFAULT_APR}
-            monthlyPayment={data.monthlyPayment}
-            currentPath={currentResult}
-            reliefPath={reliefResult}
-            onContinue={() => goTo('pii')}
-          />
-        )
       case 'pii':
         return (
           <CalcPII
